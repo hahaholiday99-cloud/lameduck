@@ -5,10 +5,10 @@
   "type": "module",
   "description": "pi extension — modular ai-workflow replacement. Spawns stacked-diff subagents per task with coverage + review gates.",
   "pi": {
-    "extensions": ["./index.ts"]
+    "extensions": ["./lameduck.ts"]
   },
   "scripts": {
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test lameduck.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

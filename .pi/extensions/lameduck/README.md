@@ -1,11 +1,29 @@
 # lameduck
 
-> **A modular `pi` extension — ai-workflow replacement.**
+> **A `pi` extension — ai-workflow replacement.**
 > Reads `specs/<feature>/backlog.md`, spawns stacked-diff subagents per
 > task, enforces a coverage gate, writes per-task reviews + reports,
 > pauses for human approval, and flips the backlog on approval.
 
-Source: [`index.ts`](./index.ts) · TypeScript · 14 modules + 81 tests · no runtime deps beyond `node:*` + `@earendil-works/pi-coding-agent`.
+Single TypeScript file · 13 in-file modules · 82 unit tests · zero
+runtime deps beyond `node:*` + `@earendil-works/pi-coding-agent`.
+
+---
+
+## Layout (this directory)
+
+```
+lameduck/
+├── lameduck.ts          ← the extension (single file, ~1100 lines)
+├── lameduck.test.ts     ← 82 unit tests (npx tsx --test lameduck.test.ts)
+├── package.json         ← declares `pi.extensions: ["./lameduck.ts"]`
+├── tsconfig.json        ← for `tsc --noEmit`
+└── README.md            ← this file
+```
+
+`pi` auto-loads `lameduck.ts` only — the test file is excluded via
+`package.json#pi.extensions`. For a one-off test, run
+`pi -e ./lameduck.ts`.
 
 ---
 
@@ -16,8 +34,8 @@ Source: [`index.ts`](./index.ts) · TypeScript · 14 modules + 81 tests · no ru
 
 1. Creates a **stacked git branch** off the base branch
 2. Spawns **in-task subagents** (`architecture`, `implement`, `coverage`,
-   `security`, optionally `design` on frontend tasks) — sequential or
-   parallel
+   `security`, optionally `design` on frontend tasks) — strictly
+   sequential, one at a time
 3. Enforces an **80% test coverage gate** (configurable)
 4. Commits the changes on the stacked branch
 5. Spawns the **post-commit review subagents** (`open-code-review` then
@@ -28,33 +46,25 @@ Source: [`index.ts`](./index.ts) · TypeScript · 14 modules + 81 tests · no ru
 
 ---
 
-## Architecture (14 modules)
+## In-file module map (13 sections)
+
+`lameduck.ts` is organised into 13 labelled sections so the modular
+architecture stays visible inside the single file:
 
 ```
-index.ts                  ← registers /lameduck, wires the modules
-├── schema/
-│   ├── args.ts           ← ParsedArgs + parseArgs() + tokenize() + helpText()
-│   ├── task.ts           ← Task + isTaskId()
-│   ├── roles.ts          ← RoleDef registry + resolveInTaskRolesForTask()
-│   └── run-state.ts      ← RunState, RunPhase, SubagentResult, TokenUsage, …
-├── resolver/
-│   └── backlog.ts        ← parseBacklogMd() + flipTaskDone() + buildBacklogFromTasks()
-├── subagent/
-│   ├── parser.ts         ← parseSubagentEvents() + extractCoveragePct()
-│   └── runner.ts         ← spawnPi + withRetry + resolvePiBin + buildSubagentPrompt
-├── git/
-│   └── index.ts          ← ExecAdapter port + GitOps (ShellExecAdapter + RecordingExecAdapter)
-├── artifacts/
-│   └── writer.ts         ← FsAdapter port + writeReview / writeReport / writePerRun / ledger
-├── ui/
-│   └── prompt.ts         ← UiAdapter port (PiUiAdapter + ScriptedUiAdapter)
-├── state/
-│   ├── machine.ts        ← 24-phase explicit FSM + buildPlan() + tick()
-│   └── gates.ts          ← checkCoverageGate + checkConsentGate
-├── resume/
-│   └── index.ts          ← HandoverSnapshot ↔ RunState + parseHandover/serialize
-└── security/
-    └── contract.ts       ← parseSecurityReport + formatSecurityReport + scoreSeverity
+§1  Schema         — ParsedArgs, Task, RunState, RoleId + ROLES
+§2  Arg parser     — parseArgs() + tokenize() + helpText()
+§3  Backlog        — parseBacklogMd() + flipTaskDone() + helpers
+§4  Subagent parser — parseSubagentEvents + extractCoveragePct
+§5  Subagent runner — piExecSpawn + withRetry + resolvePiBin
+§6  Git port       — ExecAdapter + GitOps
+§7  Artifacts      — FsAdapter + writeReview/Report/PerRun/ledger
+§8  UI port        — UiAdapter + pi/scripted adapters
+§9  State machine  — 24-phase FSM + tick() + buildPlan()
+§10 Gates          — coverage + consent
+§11 Resume         — handover.md round-trip
+§12 Security       — report parser/formatter
+§13 Entry          — lameduckExtension() + runLameduck()
 ```
 
 Every I/O side effect goes through a **port** (ExecAdapter, FsAdapter,
@@ -74,7 +84,7 @@ flavour for tests.
 | `<feature>` | picker | Directory under `specs/` |
 | `--path <file>` | `specs/<feature>/backlog.md` | Override backlog path |
 | `--role <list>` | all 4 in-task | Comma subset of in-task roles |
-| `--parallel` / `--sequential` | sequential | Run in-task subagents concurrently |
+| `--sequential` | — | Accepted for back-compat only; lameduck is always sequential |
 | `--model <pattern>` | inherit | Forwarded to every subagent |
 | `--thinking <lvl>` | inherit | `off\|minimal\|low\|medium\|high\|xhigh` |
 | `--coverage-threshold <n>` | `80` | 0..100; 0 disables |
@@ -92,8 +102,8 @@ flavour for tests.
 
 ## Roles
 
-Seven roles, each bound to a skill shipped under `.pi/skills/<skillDir>` or
-`~/.pi/agent/skills/<skillDir>`:
+Seven roles, each bound to a skill shipped under `.pi/skills/<skillDir>`
+or `~/.pi/agent/skills/<skillDir>`:
 
 | Role | Emoji | Phase | Skill |
 |---|---|---|---|
@@ -105,8 +115,7 @@ Seven roles, each bound to a skill shipped under `.pi/skills/<skillDir>` or
 | `review` | 🔍 | post-commit | `open-code-review` |
 | `thermoNuclear` | ☢️ | post-commit | `thermo-nuclear-code-quality-review` |
 
-`design` only runs on tasks whose line matches the
-[frontend heuristic](https://github.com/your-org/lameduck/blob/main/.../roles.ts)
+`design` only runs on tasks whose line matches the frontend heuristic
 (unless `--force-design`).
 
 ---
@@ -121,7 +130,7 @@ Seven roles, each bound to a skill shipped under `.pi/skills/<skillDir>` or
 | `specs/<feature>/reports/lameduck-<ts>.md` | One per run (per-run summary) |
 | `.pi/lameduck-tokens.md` | Append-only ledger across runs |
 
-Tasks.md is **never** written by the extension — it is read-only input.
+`tasks.md` is **never** written by the extension — it is read-only input.
 
 ---
 
@@ -136,6 +145,44 @@ Tasks.md is **never** written by the extension — it is read-only input.
    for safety).
 
 Any failure halts the workflow.
+
+---
+
+## Execution model — strictly sequential
+
+**lameduck is single-threaded and synchronous by design.** The whole run
+is a single async function with a single for-loop over tasks:
+
+```
+for each task in plan (in order):
+    1. branch off base              ← git checkout -b
+    2. run in-task subagent A       ← spawn pi -p, wait for it
+    3. run in-task subagent B       ← spawn pi -p, wait for it
+    4. ...
+    5. check coverage gate          ← synchronous parse
+    6. commit                       ← git add + git commit
+    7. run post-commit subagent A   ← spawn pi -p, wait for it
+    8. run post-commit subagent B   ← spawn pi -p, wait for it
+    9. write review file            ← fs.writeFileSync
+   10. consent gate                 ← ctx.ui.select (blocking)
+   11. write report file            ← fs.writeFileSync
+   12. flip backlog                 ← fs.writeFileSync (only on approval)
+   13. checkout base                ← git checkout <base>
+```
+
+**Invariants:**
+
+- Tasks run one at a time. There is no `Promise.all` over tasks.
+- Within a task, subagents run one at a time (no `Promise.all` over roles).
+- Each subagent's spawn is awaited to completion before the next one
+  starts — including parsing its `--mode json` stdout for usage.
+- Subagent child processes are spawned via `pi.exec`; they are independent
+  OS processes but the orchestrator never runs more than one at a time.
+- The whole `/lameduck` command is one async call; it returns only after
+  the loop finishes (or halts).
+
+If you need to run multiple specs concurrently, run multiple `/lameduck`
+invocations in separate `pi` sessions.
 
 ---
 
@@ -166,14 +213,10 @@ plan). **Writes nothing**, spawns no subagents.
 
 ```bash
 cd .pi/extensions/lameduck
-npm install
-npm test            # 81 tests
-npm run typecheck   # tsc --noEmit
+npm install                # one-time
+npm test                   # 82/82 ✓
+npm run typecheck          # tsc --noEmit ✓
 ```
-
-The extension auto-loads when `pi` starts in this project (it's under
-`.pi/extensions/lameduck/index.ts`). For a one-off test, run
-`pi -e ./.pi/extensions/lameduck/index.ts`.
 
 ---
 
@@ -181,10 +224,30 @@ The extension auto-loads when `pi` starts in this project (it's under
 
 | Concern | ai-workflow.ts | lameduck |
 |---|---|---|
-| Layout | one ~3000-line file | 14 modules under `schema/`, `resolver/`, `subagent/`, … |
+| Layout | one ~3000-line file | one ~1100-line file, 13 in-file sections |
 | I/O | inline `pi.exec` / `fs` calls | `ExecAdapter` / `FsAdapter` / `UiAdapter` ports |
-| State | ad-hoc control flow | explicit 24-phase `state/machine.ts` FSM |
-| Resume | none | `resume/index.ts` (handover.md round-trip) |
-| Security findings | free-text | `security/contract.ts` parses + scores |
-| Tests | none in repo | 81 unit tests across 9 suites |
+| State | ad-hoc control flow | explicit 24-phase state machine (`tick()`) |
+| Resume | none | `RunState` + `handover.md` round-trip |
+| Security findings | free-text | `parseSecurityReport` + `scoreSeverity` |
+| Tests | none in repo | 88 unit tests, `npx tsx --test` |
 | `tsc --noEmit` | not checked | clean |
+| Windows / `ENAMETOOLONG` | passes full backlog inline → hits the 32 KB Windows argv limit | truncates the excerpt to 4 KB + writes the full prompt to a temp file and passes it via `--append-system-prompt <path>` |
+
+### Windows-safe subagent spawn
+
+The original ai-workflow passes the full backlog inline as `-p <prompt>`,
+which works on Linux/macOS (argv limit ~128 KB+) but blows up on Windows
+(`CreateProcess` limit = 32 KB) with `ENAMETOOLONG`.
+
+lameduck fixes this two ways:
+
+1. **`truncateBacklogExcerpt(backlog, 4000)`** — caps the inline excerpt
+   at 4 KB and cuts at a line boundary, so the in-prompt body always fits
+   comfortably under any OS limit.
+2. **`writePromptToTempFile(role, prompt)`** — writes the full prompt to
+   `$TMPDIR/lameduck-XXXX/prompt-<role>.md` (mode 0o600) and passes the
+   file path via `--append-system-prompt <path>`. Pi reads the file
+   contents; the temp file is unlinked in a `finally` block after spawn.
+
+Net effect: the spawned `pi -p` argv is ~250 bytes regardless of backlog
+size.
