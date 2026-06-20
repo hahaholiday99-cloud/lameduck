@@ -1,0 +1,24 @@
+{
+  "rules": [
+    {
+      "path": "**/*.ts",
+      "rule": "Detect: type-safety regressions, unsafe casts, any/unknown leakage; unnecessary optionality; missing error handling on awaited promises; misuse of process.exit / fs operations."
+    },
+    {
+      "path": "**/state/machine.ts",
+      "rule": "Critical review: 21-phase state machine — flag any phase that mutates state inconsistently, broken terminal conditions, missed phase transitions, or unbounded loops."
+    },
+    {
+      "path": "**/subagent/runner.ts",
+      "rule": "Critical review: spawn timeout handling, partial-write cleanup on failure, JSON parsing of newline-delimited streams, retry loop correctness."
+    },
+    {
+      "path": "**/lameduck.ts",
+      "rule": "Critical review: argument parsing security (no shell injection), proper defaults, dry-run guarantees no subprocess side effects."
+    },
+    {
+      "path": "**/schema/*.ts",
+      "rule": "All Zod schemas must use .strict() or .strip() consistently; required fields must use z.string().min(1) etc; rejects must produce actionable error messages."
+    }
+  ]
+}

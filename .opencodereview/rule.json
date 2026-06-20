@@ -1,0 +1,12 @@
+{
+  "rules": [
+    {
+      "path": "**/*.java",
+      "rule": "Review Java code for: (1) JPA AttributeConverter correctness — null-handling, exception contracts, and side effects. (2) Resource management — all I/O streams must be closed via try-with-resources. (3) Security: decompression-bomb DoS protection (cap compressed and decompressed sizes). (4) UTF-8 charset explicitly specified (never default platform charset). (5) No swallowed exceptions, no empty catch blocks. (6) Defensive input validation on public methods. (7) Constants for magic numbers, with semantic names and units. (8) Doc comments should describe contracts (null in/out, exception types) and reference the governing spec/ADR."
+    },
+    {
+      "path": "**/test/**/*.java",
+      "rule": "Review Java test code for: (1) Independence — tests must not share mutable state. (2) AssertJ/Truthy/assertEquals usage clarity. (3) Coverage of happy path, null edges, malformed input, and boundary values. (4) DisplayNames should be human-readable sentences. (5) Tests should be fast (no real I/O). (6) Use @ParameterizedTest for data-driven cases. (7) Avoid over-mocking — prefer testing real behavior."
+    }
+  ]
+}
